@@ -1,11 +1,11 @@
 # spelunkery: Spelunkery 1.20.1-0.3.16 (Ordana, Keybounce; LGPL-3.0). One package: data/ and assets/ are the content
 # mod mods/spelunkery (tools/spelunkery_port.py, settings from the registry oracle in tools/ns_oracle; merged by
-# tools/build_next.py); src/classes.rs and src/vanilla_loot.rs are written by the same generator. Everything else is
-# the mod API (src/lib.rs): no game module and no mixin. Licence text in LICENSE (LGPL-3.0) and COPYING (GPL-3.0),
-# credits in NOTICE.
+# tools/build_next.py); src/classes.rs is written by the same generator. Everything else is the mod API (src/lib.rs,
+# src/loot.rs: Spelunkery's changes to vanilla loot tables, made in place): no game module and no mixin. Licence
+# text in LICENSE (LGPL-3.0) and COPYING (GPL-3.0), credits in NOTICE.
 id = "spelunkery"
 name = "Spelunkery"
-version = "0.2.0"
+version = "0.2.1"
 description = "Spelunkery: ore variants in granite, andesite, diorite and tuff, rough gems and raw nuggets, cave mushrooms, rock salt, nephrite, glowsticks, rope ladders and mining tools (by Ordana and Keybounce)"
 authors = ["Ordana", "Keybounce"]
 api = "0.2"

@@ -1,8 +1,7 @@
 //! spelunkery: Spelunkery 1.20.1-0.3.16 (Ordana, Keybounce; LGPL-3.0), from the decompiled jar
 //! (tools/dl/spelunkery/named) and the registry oracle's facts (tools/ns_oracle). data/ and assets/ are the content mod
-//! mods/spelunkery (tools/spelunkery_port.py), which also writes `classes.rs` (every block's Java class and template)
-//! and `vanilla_loot.rs` (the vanilla loot tables the jar's dynamic pack replaced). All of it is the mod API: no game
-//! module, no mixin.
+//! mods/spelunkery (tools/spelunkery_port.py), which also writes `classes.rs`
+//! (every block's Java class and template). All of it is the mod API: no game module, no mixin.
 //!
 //! One `BlockPart` (`Rules`) on every block:
 //! - `exp_drop`: the ores whose Java DropExperienceBlock has no XP range drop none (their vanilla templates do);
@@ -36,9 +35,9 @@
 //! the inventory opens after half a second of falling faster than 1 block a tick and gives slow falling until the
 //! player lands, then takes one damage (ParachuteItem). Pebbles copy the snowball and need no code.
 //!
-//! `loot_table_load`: the vanilla ore, sculk and piglin bartering tables the jar's dynamic pack replaced (live server
-//! config: rough gems and raw nuggets on), and the chest injects (mineshaft, ruined portal, stronghold library,
-//! ancient city).
+//! `loot_table_load`: Spelunkery's changes to the vanilla ore, sculk and piglin bartering tables (the jar's dynamic
+//! pack, live server config: rough gems and raw nuggets on), made in place on the player's own tables (`loot.rs`), and
+//! the chest injects (mineshaft, ruined portal, stronghold library, ancient city).
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
@@ -51,7 +50,7 @@ use mod_api::{
 };
 
 mod classes;
-mod vanilla_loot;
+mod loot;
 
 const NS: &str = "spelunkery:";
 
@@ -1214,10 +1213,8 @@ fn parachute(host: &mut dyn ServerHost, p: mod_api::PlayerRef, slot: u32, stack:
 // Loot
 // ---------------------------------------------------------------------------------------------
 
-fn vanilla_loot() -> &'static HashMap<String, Value> {
-    static M: OnceLock<HashMap<String, Value>> = OnceLock::new();
-    M.get_or_init(|| mod_api::serde_json::from_str(vanilla_loot::JSON).unwrap_or_default())
-}
+/// Tables already logged as left alone (`loot_table_load` runs again on every data reload).
+static LOOT_LOGGED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn push_pool(table: &mut Value, pool: Value) {
     match table.get_mut("pools").and_then(|p| p.as_array_mut()) {
@@ -1266,12 +1263,22 @@ impl Hooks for Mod {
 
     fn loot_table_load(&self, _context: &dyn DataLoadContext, event: &mut LootTableLoadEvent<'_>) {
         let id = event.id;
-        if let Some(t) = vanilla_loot().get(id) {
-            *event.table = t.clone();
-            if debug() {
-                eprintln!("[spelunkery] {id} replaced");
+        match loot::apply(id, event.table) {
+            loot::Patched::NotOurs => {}
+            loot::Patched::Unexpected(why) => {
+                let mut logged = lock(&LOOT_LOGGED);
+                if !logged.iter().any(|x| x == id) {
+                    logged.push(id.to_string());
+                    eprintln!("[spelunkery] loot table {id} left as it is: {why}");
+                }
+                return;
             }
-            return;
+            done => {
+                if debug() {
+                    eprintln!("[spelunkery] {id}: {done:?}");
+                }
+                return;
+            }
         }
         if let Some(chest) = id.strip_prefix("minecraft:chests/") {
             if CHEST_INJECTS.contains(&chest) {
@@ -1332,12 +1339,6 @@ mod tests {
     fn classes_known() {
         assert_eq!(class_map().get("inkcap_mushroom").map(|c| c.0), Some("GrowableMushroomBlock"));
         assert_eq!(class_map().get("rope_ladder").map(|c| c.1), Some("ladder"));
-    }
-
-    #[test]
-    fn loot_parses() {
-        assert!(vanilla_loot().contains_key("minecraft:blocks/diamond_ore"));
-        assert!(vanilla_loot().contains_key("minecraft:gameplay/piglin_bartering"));
     }
 
     #[test]
